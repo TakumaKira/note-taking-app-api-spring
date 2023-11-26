@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.IanaLinkRelations;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,8 +42,12 @@ public class NoteController {
   // end::get-aggregate-root[]
 
   @PostMapping("/notes")
-  Note newNote(@RequestBody Note newNote) {
-    return repository.save(newNote);
+  ResponseEntity<?> newNote(@RequestBody Note newNote) {
+    EntityModel<Note> entityModel = assembler.toModel(repository.save(newNote));
+
+    return ResponseEntity //
+        .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
+        .body(entityModel);
   }
 
   // Single item
@@ -54,21 +60,29 @@ public class NoteController {
   }
 
   @PutMapping("/notes/{id}")
-  Note replaceNote(@RequestBody Note newNote, @PathVariable Long id) {
-    return repository.findById(id)
-      .map(note -> {
-        note.setTitle(newNote.getTitle());
-        note.setContent(newNote.getContent());
-        return repository.save(note);
-      })
-      .orElseGet(() -> {
-        newNote.setId(id);
-        return repository.save(newNote);
-      });
+  ResponseEntity<?> replaceNote(@RequestBody Note newNote, @PathVariable Long id) {
+    Note updatedNote = repository.findById(id) //
+        .map(note -> {
+          note.setTitle(newNote.getTitle());
+          note.setContent(newNote.getContent());
+          return repository.save(note);
+        }) //
+        .orElseGet(() -> {
+          newNote.setId(id);
+          return repository.save(newNote);
+        });
+
+    EntityModel<Note> entityModel = assembler.toModel(updatedNote);
+
+    return ResponseEntity //
+        .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
+        .body(entityModel);
   }
 
   @DeleteMapping("/notes/{id}")
-  void deleteNote(@PathVariable Long id) {
+  ResponseEntity<?> deleteNote(@PathVariable Long id) {
     repository.deleteById(id);
+
+    return ResponseEntity.noContent().build();
   }
 }
