@@ -1,7 +1,12 @@
 package com.takumakira.notetakingappapispring;
 
-import java.util.List;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,8 +27,14 @@ public class NoteController {
   // Aggregate root
   // tag::get-aggregate-root[]
   @GetMapping("/notes")
-  List<Note> all() {
-    return repository.findAll();
+  CollectionModel<EntityModel<Note>> all() {
+    List<EntityModel<Note>> notes = repository.findAll().stream()
+      .map(note -> EntityModel.of(note,
+        linkTo(methodOn(NoteController.class).one(note.getId())).withSelfRel(),
+        linkTo(methodOn(NoteController.class).all()).withRel("notes")))
+      .collect(Collectors.toList());
+    return CollectionModel.of(notes,
+      linkTo(methodOn(NoteController.class).all()).withSelfRel());
   }
   // end::get-aggregate-root[]
 
@@ -35,9 +46,12 @@ public class NoteController {
   // Single item
 
   @GetMapping("/notes/{id}")
-  Note one(@PathVariable Long id) {
-    return repository.findById(id)
+  EntityModel<Note> one(@PathVariable Long id) {
+    Note note = repository.findById(id)
       .orElseThrow(() -> new NoteNotFoundException(id));
+    return EntityModel.of(note,
+      linkTo(methodOn(NoteController.class).one(id)).withSelfRel(),
+      linkTo(methodOn(NoteController.class).all()).withRel("notes"));
   }
 
   @PutMapping("/notes/{id}")
