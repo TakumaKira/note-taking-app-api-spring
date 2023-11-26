@@ -20,8 +20,11 @@ public class NoteController {
 
   private final NoteRepository repository;
 
-  NoteController(NoteRepository repository) {
+  private final NoteModelAssembler assembler;
+
+  NoteController(NoteRepository repository, NoteModelAssembler assembler) {
     this.repository = repository;
+    this.assembler = assembler;
   }
 
   // Aggregate root
@@ -29,9 +32,7 @@ public class NoteController {
   @GetMapping("/notes")
   CollectionModel<EntityModel<Note>> all() {
     List<EntityModel<Note>> notes = repository.findAll().stream()
-      .map(note -> EntityModel.of(note,
-        linkTo(methodOn(NoteController.class).one(note.getId())).withSelfRel(),
-        linkTo(methodOn(NoteController.class).all()).withRel("notes")))
+      .map(assembler::toModel)
       .collect(Collectors.toList());
     return CollectionModel.of(notes,
       linkTo(methodOn(NoteController.class).all()).withSelfRel());
@@ -49,9 +50,7 @@ public class NoteController {
   EntityModel<Note> one(@PathVariable Long id) {
     Note note = repository.findById(id)
       .orElseThrow(() -> new NoteNotFoundException(id));
-    return EntityModel.of(note,
-      linkTo(methodOn(NoteController.class).one(id)).withSelfRel(),
-      linkTo(methodOn(NoteController.class).all()).withRel("notes"));
+    return assembler.toModel(note);
   }
 
   @PutMapping("/notes/{id}")
